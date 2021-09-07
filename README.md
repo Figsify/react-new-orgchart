@@ -1,5 +1,9 @@
 ![OrgChart](https://randomthimgs.blob.core.windows.net/randomthimgs/lomgo.png)
 
+## Why the fork on top of a fanstastic fork job?
+
+- Simply I need to have pdf export enabled to existing library; I do recommend to use original fork if there's no requirement for pdf export
+
 ## Why use this fork?
 
 - Panning is now drag-to-scroll based, deprecating the transform CSS property logic. This avoids [scrolling and visualization issues](https://stackoverflow.com/questions/45512317/css-transform-origin-center-overflow-scroll-not-full-width) when rendering a large OrgChart.
@@ -143,7 +147,8 @@
     </tr>
     <tr>
       <td>exportTo</td>
-      <td>User can use this method to export orgchart to png orge. Sample code: orgchartRef.current.exportTo(filename)</td>
+      <td>User can use this method to export orgchart to png orge. Sample code: orgchartRef.current.exportTo(filename, filetype, options). supported file types are image/jpeg and application/pdf. options is an object, currently supports an option for switching between pdf drivers jspdf and dom-to-pdf
+      </td>
     </tr>
     <tr>
       <td>zoomIn(amount)</td>
@@ -175,5 +180,5 @@
 ## Install
 
 ```
-npm install @jearaneda/react-new-orgchart
+npm install @figsify/react-new-orgchart
 ```

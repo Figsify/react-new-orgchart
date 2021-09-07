@@ -8,8 +8,10 @@ import React, {
 import PropTypes from 'prop-types';
 import { selectNodeService } from './service';
 import JSONDigger from 'json-digger';
+import html2canvas from "html2canvas";
 import domtoimage from 'dom-to-image';
 import domtopdf from 'dom-to-pdf';
+import jsPDF from "jspdf";
 import ChartNode from './ChartNode';
 import './ChartContainer.css';
 
@@ -233,12 +235,68 @@ const ChartContainer = forwardRef(
         });
     };
 
-    const chartToPdf = (exportFilename) => {
+    const chartToPdf = (exportfilename, driver) => {
+      if (driver === 'dom-to-pdf') {
+        chartToPdfUsingDomToPdf(exportfilename);
+        return;
+      } else if (driver === 'jspdf') {
+        chartToPdfUsingJsPdf(exportfilename)
+      }
+    }
+
+    const chartToPdfUsingDomToPdf = (exportFilename) => {
       setExporting(true);
       domtopdf(chart.current, { filename: exportFilename }, () => {
         setExporting(false)
-      })
+      });
+      
     }
+
+    const chartToPdfUsingJsPdf = (exportFilename) => {
+      setExporting(true);
+
+      const originalScrollLeft = container.current.scrollLeft;
+      container.current.scrollLeft = 0;
+      const originalScrollTop = container.current.scrollTop;
+      container.current.scrollTop = 0;
+
+      html2canvas(chart.current, {
+        width: chart.current.clientWidth,
+        height: chart.current.clientHeight,
+        onclone: function(clonedDoc) {
+          clonedDoc.querySelector(".orgchart").style.background = "none";
+          clonedDoc.querySelector(".orgchart").style.transform = "";
+        }
+      }).then(
+        canvas => {
+          const canvasWidth = Math.floor(canvas.width);
+          const canvasHeight = Math.floor(canvas.height);
+          const doc =
+            canvasWidth > canvasHeight
+              ? new jsPDF({
+                  orientation: "landscape",
+                  unit: "px",
+                  format: [canvasWidth, canvasHeight]
+                })
+              : new jsPDF({
+                  orientation: "portrait",
+                  unit: "px",
+                  format: [canvasHeight, canvasWidth]
+                });
+          doc.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0);
+          doc.save(exportFilename + ".pdf");
+
+          setExporting(false);
+          container.current.scrollLeft = originalScrollLeft;
+          container.current.scrollTop = originalScrollTop;
+        },
+        () => {
+          setExporting(false);
+          container.current.scrollLeft = originalScrollLeft;
+          container.current.scrollTop = originalScrollTop;
+        }
+      );
+    };
 
     useImperativeHandle(ref, () => ({
       setExporting: (exporting) => setExporting(exporting),
@@ -257,7 +315,7 @@ const ChartContainer = forwardRef(
           chart.current.style.transform = setTransform(newZoom);
         }
       },
-      exportTo: (exportFilename, fileType = 'image/jpeg') => {
+      exportTo: (exportFilename, fileType = 'image/jpeg', options = {}) => {
         exportFilename = exportFilename || 'OrgChart';
         setExporting(true);
         const originalScrollLeft = container.current.scrollLeft;
@@ -266,7 +324,7 @@ const ChartContainer = forwardRef(
         container.current.scrollTop = 0;
         if (fileType === 'application/pdf') {
           setTimeout(function () {
-            chartToPdf(exportFilename);
+            chartToPdf(exportFilename, (options || {}).pdfDriver || 'dom-to-pdf');
           }, 300);
         } else {
           setTimeout(function () {
