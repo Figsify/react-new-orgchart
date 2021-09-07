@@ -1,6 +1,6 @@
 {
   "name": "@figsify/react-new-orgchart",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "An OrgChart fork with a focus on readability and compatibility with bulky diagrams.",
   "main": "./dist/ChartContainer.js",
   "files": [
