@@ -15,9 +15,13 @@ var _service = require("./service");
 
 var _jsonDigger = _interopRequireDefault(require("json-digger"));
 
+var _html2canvas = _interopRequireDefault(require("html2canvas"));
+
 var _domToImage = _interopRequireDefault(require("dom-to-image"));
 
 var _domToPdf = _interopRequireDefault(require("dom-to-pdf"));
+
+var _jspdf = _interopRequireDefault(require("jspdf"));
 
 var _ChartNode = _interopRequireDefault(require("./ChartNode"));
 
@@ -305,14 +309,63 @@ var ChartContainer = /*#__PURE__*/(0, _react.forwardRef)(function (_ref, ref) {
     });
   };
 
-  var chartToPdf = function chartToPdf(exportFilename) {
+  var chartToPdf = function chartToPdf(exportfilename, driver) {
+    if (driver === 'dom-to-pdf') {
+      chartToPdfUsingDomToPdf(exportfilename);
+      return;
+    } else if (driver === 'jspdf') {
+      chartToPdfUsingJsPdf(exportfilename);
+    }
+  };
+
+  var chartToPdfUsingDomToPdf = function chartToPdfUsingDomToPdf(exportFilename) {
     _setExporting(true);
 
-    console.log(exportFilename);
     (0, _domToPdf.default)(chart.current, {
       filename: exportFilename
     }, function () {
       _setExporting(false);
+    });
+  };
+
+  var chartToPdfUsingJsPdf = function chartToPdfUsingJsPdf(exportFilename) {
+    _setExporting(true);
+
+    var originalScrollLeft = container.current.scrollLeft;
+    container.current.scrollLeft = 0;
+    var originalScrollTop = container.current.scrollTop;
+    container.current.scrollTop = 0;
+    (0, _html2canvas.default)(chart.current, {
+      width: chart.current.clientWidth,
+      height: chart.current.clientHeight,
+      onclone: function onclone(clonedDoc) {
+        clonedDoc.querySelector(".orgchart").style.background = "none";
+        clonedDoc.querySelector(".orgchart").style.transform = "";
+      }
+    }).then(function (canvas) {
+      var canvasWidth = Math.floor(canvas.width);
+      var canvasHeight = Math.floor(canvas.height);
+      var doc = canvasWidth > canvasHeight ? new _jspdf.default({
+        orientation: "landscape",
+        unit: "px",
+        format: [canvasWidth, canvasHeight]
+      }) : new _jspdf.default({
+        orientation: "portrait",
+        unit: "px",
+        format: [canvasHeight, canvasWidth]
+      });
+      doc.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0);
+      doc.save(exportFilename + ".pdf");
+
+      _setExporting(false);
+
+      container.current.scrollLeft = originalScrollLeft;
+      container.current.scrollTop = originalScrollTop;
+    }, function () {
+      _setExporting(false);
+
+      container.current.scrollLeft = originalScrollLeft;
+      container.current.scrollTop = originalScrollTop;
     });
   };
 
@@ -342,6 +395,7 @@ var ChartContainer = /*#__PURE__*/(0, _react.forwardRef)(function (_ref, ref) {
       },
       exportTo: function exportTo(exportFilename) {
         var fileType = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'image/jpeg';
+        var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
         exportFilename = exportFilename || 'OrgChart';
 
         _setExporting(true);
@@ -353,7 +407,7 @@ var ChartContainer = /*#__PURE__*/(0, _react.forwardRef)(function (_ref, ref) {
 
         if (fileType === 'application/pdf') {
           setTimeout(function () {
-            chartToPdf(exportFilename);
+            chartToPdf(exportFilename, (options || {}).pdfDriver || 'dom-to-pdf');
           }, 300);
         } else {
           setTimeout(function () {
