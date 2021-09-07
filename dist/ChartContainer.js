@@ -13,7 +13,15 @@ var _propTypes = _interopRequireDefault(require("prop-types"));
 
 var _service = require("./service");
 
-require("./ChartNode.css");
+var _jsonDigger = _interopRequireDefault(require("json-digger"));
+
+var _domToImage = _interopRequireDefault(require("dom-to-image"));
+
+var _domToPdf = _interopRequireDefault(require("dom-to-pdf"));
+
+var _ChartNode = _interopRequireDefault(require("./ChartNode"));
+
+require("./ChartContainer.css");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -27,13 +35,9 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
-function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
+function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { Promise.resolve(value).then(_next, _throw); } }
 
-function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-
-function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && iter[Symbol.iterator] != null || iter["@@iterator"] != null) return Array.from(iter); }
-
-function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
+function _asyncToGenerator(fn) { return function () { var self = this, args = arguments; return new Promise(function (resolve, reject) { var gen = fn.apply(self, args); function _next(value) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value); } function _throw(err) { asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err); } _next(undefined); }); }; }
 
 function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
 
@@ -48,333 +52,352 @@ function _iterableToArrayLimit(arr, i) { var _i = arr == null ? null : typeof Sy
 function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 var propTypes = {
-  datasource: _propTypes.default.object,
+  datasource: _propTypes.default.object.isRequired,
+  pan: _propTypes.default.bool,
+  minZoom: _propTypes.default.number,
+  maxZoom: _propTypes.default.number,
+  defaultZoom: _propTypes.default.number,
+  containerClass: _propTypes.default.string,
+  chartClass: _propTypes.default.string,
   NodeTemplate: _propTypes.default.elementType,
   draggable: _propTypes.default.bool,
   collapsible: _propTypes.default.bool,
   multipleSelect: _propTypes.default.bool,
-  changeHierarchy: _propTypes.default.func,
   onClickNode: _propTypes.default.func,
+  onClickChart: _propTypes.default.func,
   toggleableSiblings: _propTypes.default.bool,
-  isUser: _propTypes.default.bool
+  loading: _propTypes.default.bool,
+  loadingComponent: _propTypes.default.element
 };
 var defaultProps = {
+  pan: false,
+  minZoom: 0.1,
+  maxZoom: 3,
+  defaultZoom: 0.5,
+  containerClass: '',
+  chartClass: '',
   draggable: false,
   collapsible: true,
   multipleSelect: false,
-  toggleableSiblings: false,
-  isUser: false
+  toggleableSiblings: true,
+  loading: false,
+  loadingComponent: /*#__PURE__*/_react.default.createElement("i", {
+    className: "oci oci-spinner"
+  })
 };
-
-var ChartNode = function ChartNode(_ref) {
+var ChartContainer = /*#__PURE__*/(0, _react.forwardRef)(function (_ref, ref) {
   var datasource = _ref.datasource,
+      pan = _ref.pan,
+      minZoom = _ref.minZoom,
+      maxZoom = _ref.maxZoom,
+      defaultZoom = _ref.defaultZoom,
+      containerClass = _ref.containerClass,
+      chartClass = _ref.chartClass,
       NodeTemplate = _ref.NodeTemplate,
       draggable = _ref.draggable,
       collapsible = _ref.collapsible,
       multipleSelect = _ref.multipleSelect,
-      changeHierarchy = _ref.changeHierarchy,
       onClickNode = _ref.onClickNode,
+      onClickChart = _ref.onClickChart,
       toggleableSiblings = _ref.toggleableSiblings,
-      isUser = _ref.isUser;
-  var node = (0, _react.useRef)();
+      loading = _ref.loading,
+      loadingComponent = _ref.loadingComponent;
+  var container = (0, _react.useRef)();
+  var chart = (0, _react.useRef)();
 
-  var _useState = (0, _react.useState)(),
+  var _useState = (0, _react.useState)(false),
       _useState2 = _slicedToArray(_useState, 2),
-      topEdgeExpanded = _useState2[0],
-      setTopEdgeExpanded = _useState2[1];
+      panning = _useState2[0],
+      setPanning = _useState2[1];
 
-  var _useState3 = (0, _react.useState)(),
+  var _useState3 = (0, _react.useState)('default'),
       _useState4 = _slicedToArray(_useState3, 2),
-      rightEdgeExpanded = _useState4[0],
-      setRightEdgeExpanded = _useState4[1];
+      cursor = _useState4[0],
+      setCursor = _useState4[1];
 
-  var _useState5 = (0, _react.useState)(),
+  var _useState5 = (0, _react.useState)(false),
       _useState6 = _slicedToArray(_useState5, 2),
-      bottomEdgeExpanded = _useState6[0],
-      setBottomEdgeExpanded = _useState6[1];
+      exporting = _useState6[0],
+      _setExporting = _useState6[1];
 
-  var _useState7 = (0, _react.useState)(),
+  var _useState7 = (0, _react.useState)({
+    left: 0,
+    top: 0,
+    x: 0,
+    y: 0
+  }),
       _useState8 = _slicedToArray(_useState7, 2),
-      leftEdgeExpanded = _useState8[0],
-      setLeftEdgeExpanded = _useState8[1];
+      pos = _useState8[0],
+      setPos = _useState8[1];
 
-  var _useState9 = (0, _react.useState)(false),
+  var _useState9 = (0, _react.useState)(1),
       _useState10 = _slicedToArray(_useState9, 2),
-      allowedDrop = _useState10[0],
-      setAllowedDrop = _useState10[1];
+      zoom = _useState10[0],
+      setZoom = _useState10[1];
 
-  var _useState11 = (0, _react.useState)(false),
+  var _useState11 = (0, _react.useState)(datasource),
       _useState12 = _slicedToArray(_useState11, 2),
-      selected = _useState12[0],
-      setSelected = _useState12[1];
+      ds = _useState12[0],
+      setDS = _useState12[1];
 
-  var nodeClass = ['oc-node', isUser ? 'isUser' : '', allowedDrop ? 'allowedDrop' : '', selected ? 'selected' : ''].filter(function (item) {
-    return item;
-  }).join(' ');
-  (0, _react.useEffect)(function () {
-    var subs1 = _service.dragNodeService.getDragInfo().subscribe(function (draggedInfo) {
-      if (draggedInfo) {
-        setAllowedDrop(!document.querySelector('#' + draggedInfo.draggedNodeId).closest('li').querySelector('#' + node.current.id) ? true : false);
-      } else {
-        setAllowedDrop(false);
-      }
-    });
+  var attachRel = function attachRel(data, flags) {
+    data.relationship = flags + (data.children && data.children.length > 0 ? 1 : 0);
 
-    var subs2 = _service.selectNodeService.getSelectedNodeInfo().subscribe(function (selectedNodeInfo) {
-      if (selectedNodeInfo) {
-        if (multipleSelect) {
-          if (selectedNodeInfo.selectedNodeId === datasource.id) {
-            setSelected(true);
-          }
-        } else {
-          setSelected(selectedNodeInfo.selectedNodeId === datasource.id);
-        }
-      } else {
-        setSelected(false);
-      }
-    });
-
-    return function () {
-      subs1.unsubscribe();
-      subs2.unsubscribe();
-    };
-  }, [multipleSelect, datasource]);
-
-  var addArrows = function addArrows(e) {
-    var node = e.target.closest('li');
-    var parent = node.parentNode.closest('li');
-    var isAncestorsCollapsed = node && parent ? parent.firstChild.classList.contains('hidden') : undefined;
-    var isSiblingsCollapsed = Array.from(node.parentNode.children).some(function (item) {
-      return item.classList.contains('hidden');
-    });
-    var children = node.children[1];
-    var isChildrenCollapsed = false;
-    if (children) isChildrenCollapsed = children.classList.contains('hidden');
-    setTopEdgeExpanded(!isAncestorsCollapsed);
-    setRightEdgeExpanded(!isSiblingsCollapsed);
-    setLeftEdgeExpanded(!isSiblingsCollapsed);
-    setBottomEdgeExpanded(!isChildrenCollapsed);
-  };
-
-  var removeArrows = function removeArrows() {
-    setTopEdgeExpanded(undefined);
-    setRightEdgeExpanded(undefined);
-    setBottomEdgeExpanded(undefined);
-    setLeftEdgeExpanded(undefined);
-  };
-
-  var toggleAncestors = function toggleAncestors(actionNode) {
-    var node = actionNode.parentNode.closest('li');
-    if (!node) return;
-    var isAncestorsCollapsed = node.firstChild.classList.contains('hidden');
-
-    if (isAncestorsCollapsed) {
-      // 向上展开，只展开一级
-      actionNode.classList.remove('isAncestorsCollapsed');
-      node.firstChild.classList.remove('hidden');
-      node.firstChild.classList.remove('zero-opacity');
-      toggleSiblings(actionNode);
-    } else {
-      var _actionNode$classList;
-
-      // 向下折叠，则折叠所有祖先节点以及祖先节点的兄弟节点
-      var isSiblingsCollapsed = Array.from(actionNode.parentNode.children).some(function (item) {
-        return item.classList.contains('hidden');
+    if (data.children) {
+      data.children.forEach(function (item) {
+        attachRel(item, '1' + (data.children.length > 1 ? 1 : 0));
       });
+    }
 
-      if (!isSiblingsCollapsed) {
-        toggleSiblings(actionNode);
+    return data;
+  };
+
+  var setTransform = function setTransform(z) {
+    setZoom(z);
+    return "scale(".concat(z, ")");
+  };
+
+  (0, _react.useEffect)(function () {
+    chart.current.style.transform = setTransform(defaultZoom);
+  }, [defaultZoom]);
+  (0, _react.useEffect)(function () {
+    setDS(datasource);
+  }, [datasource]);
+  var dsDigger = new _jsonDigger.default(datasource, 'id', 'children');
+
+  var clickChartHandler = function clickChartHandler(event) {
+    if (!event.target.closest('.oc-node')) {
+      if (onClickChart) {
+        onClickChart();
       }
 
-      (_actionNode$classList = actionNode.classList).add.apply(_actionNode$classList, _toConsumableArray(('isAncestorsCollapsed' + (isSiblingsCollapsed ? '' : ' isSiblingsCollapsed')).split(' ')));
-
-      node.firstChild.classList.add('zero-opacity');
-      setTimeout(function () {
-        node.firstChild.classList.add('hidden');
-      }, 300); // 如果还有展开的祖先节点，那继续折叠关闭之
-
-      if (node.parentNode.closest('li') && !node.parentNode.closest('li').firstChild.classList.contains('hidden')) {
-        toggleAncestors(node);
-      }
+      _service.selectNodeService.clearSelectedNodeInfo();
     }
   };
 
-  var topEdgeClickHandler = function topEdgeClickHandler(e) {
-    e.stopPropagation();
-    setTopEdgeExpanded(!topEdgeExpanded);
-    toggleAncestors(e.target.closest('li'));
+  var panEndHandler = function panEndHandler() {
+    setPanning(false);
+    setCursor('default');
   };
 
-  var toggleChildren = function toggleChildren(actionNode) {
-    var node = actionNode.target.closest('li');
-    var children = node.children[1];
-    var isChildrenCollapsed = false;
-    if (children) isChildrenCollapsed = children.classList.contains('hidden');
+  var panHandler = function panHandler(e) {
+    var dx = e.clientX - pos.x;
+    var dy = e.clientY - pos.y;
+    container.current.scrollTop = pos.top - dy;
+    container.current.scrollLeft = pos.left - dx;
+  };
 
-    if (isChildrenCollapsed) {
-      children.classList.remove('hidden');
-      children.classList.remove('zero-opacity');
+  var panStartHandler = function panStartHandler(e) {
+    setPos({
+      left: container.current.scrollLeft,
+      top: container.current.scrollTop,
+      x: e.clientX,
+      y: e.clientY
+    });
+    setPanning(true);
+    setCursor('grab');
+  };
+
+  var changeHierarchy = /*#__PURE__*/function () {
+    var _ref2 = _asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee(draggedItemData, dropTargetId) {
+      return regeneratorRuntime.wrap(function _callee$(_context) {
+        while (1) {
+          switch (_context.prev = _context.next) {
+            case 0:
+              _context.next = 2;
+              return dsDigger.removeNode(draggedItemData.id);
+
+            case 2:
+              _context.next = 4;
+              return dsDigger.addChildren(dropTargetId, draggedItemData);
+
+            case 4:
+              setDS(_objectSpread({}, dsDigger.ds));
+
+            case 5:
+            case "end":
+              return _context.stop();
+          }
+        }
+      }, _callee);
+    }));
+
+    return function changeHierarchy(_x, _x2) {
+      return _ref2.apply(this, arguments);
+    };
+  }();
+
+  function saveAs(uri, filename) {
+    var link = document.createElement('a');
+
+    if (typeof link.download === 'string') {
+      link.href = uri;
+      link.download = filename; //Firefox requires the link to be in the body
+
+      document.body.appendChild(link); //simulate click
+
+      link.click(); //remove the link when done
+
+      document.body.removeChild(link);
     } else {
-      children.classList.add('zero-opacity');
-      setTimeout(function () {
-        children.classList.add('hidden');
-      }, 300);
+      window.open(uri);
     }
-  };
+  }
 
-  var bottomEdgeClickHandler = function bottomEdgeClickHandler(e) {
-    e.stopPropagation();
-    toggleChildren(e);
-    setBottomEdgeExpanded(!bottomEdgeExpanded);
-  };
+  function base64SvgToBase64Png(originalBase64, width, height, filename) {
+    return new Promise(function (resolve) {
+      var img = document.createElement('img');
 
-  var toggleSiblings = function toggleSiblings(actionNode) {
-    var node = actionNode.previousSibling;
-    var isSiblingsCollapsed = Array.from(actionNode.parentNode.children).some(function (item) {
-      return item.classList.contains('hidden');
+      img.onload = function () {
+        document.body.appendChild(img);
+        var canvas = document.createElement('canvas');
+        document.body.removeChild(img);
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        try {
+          var data = canvas.toDataURL('image/jpeg');
+          saveAs(data, filename + '.jpeg');
+          resolve(data);
+        } catch (e) {
+          resolve(null);
+        }
+      };
+
+      img.src = originalBase64;
     });
-    actionNode.classList.toggle('isSiblingsCollapsed', !isSiblingsCollapsed); // 先处理同级的兄弟节点
+  }
 
-    while (node) {
-      if (isSiblingsCollapsed) {
-        node.classList.remove('hidden');
-        node.classList.remove('zero-opacity');
+  var chartToImage = function chartToImage(exportFilename, originalScrollLeft, originalScrollTop) {
+    _domToImage.default.toSvg(chart.current, {
+      width: chart.current.scrollWidth,
+      height: chart.current.scrollHeight,
+      style: {
+        transform: ''
+      },
+      imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAMSURBVBhXY7h79y4ABTICmGnXPbMAAAAASUVORK5CYII='
+    }).then(function (canvas) {
+      var width, height;
+      var aspectRatio = chart.current.scrollWidth / chart.current.scrollHeight;
+
+      if (aspectRatio > 1) {
+        width = Math.min(chart.current.scrollWidth, 16384);
+        height = width / aspectRatio;
       } else {
-        node.classList.add('zero-opacity');
-        setTimeout(function () {
-          node.classList.add('hidden');
-        }, 300);
+        height = Math.min(chart.current.scrollHeight, 16384);
+        width = height * aspectRatio;
       }
 
-      node = node.previousSibling;
-    }
+      base64SvgToBase64Png(canvas, width, height, exportFilename).then(function () {
+        chart.current.style.transform = setTransform(zoom);
 
-    node = actionNode.nextSibling;
+        _setExporting(false);
 
-    while (node) {
-      if (isSiblingsCollapsed) {
-        node.classList.remove('hidden');
-        node.classList.remove('zero-opacity');
-      } else {
-        node.classList.add('zero-opacity');
-        setTimeout(function () {
-          node.classList.add('hidden');
-        }, 300);
+        container.current.scrollLeft = originalScrollLeft;
+        container.current.scrollTop = originalScrollTop;
+      });
+    }).catch(function (e) {
+      _setExporting(false);
+    });
+  };
+
+  var chartToPdf = function chartToPdf(exportFilename) {
+    _setExporting(true);
+
+    console.log(exportFilename);
+    (0, _domToPdf.default)(chart.current, {
+      filename: exportFilename
+    }, function () {
+      _setExporting(false);
+    });
+  };
+
+  (0, _react.useImperativeHandle)(ref, function () {
+    return {
+      setExporting: function setExporting(exporting) {
+        return _setExporting(exporting);
+      },
+      resetZoom: function resetZoom() {
+        chart.current.style.transform = setTransform(defaultZoom);
+      },
+      zoomIn: function zoomIn() {
+        var amount = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0.05;
+        var newZoom = zoom + amount;
+
+        if (newZoom <= maxZoom) {
+          chart.current.style.transform = setTransform(newZoom);
+        }
+      },
+      zoomOut: function zoomOut() {
+        var amount = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0.05;
+        var newZoom = zoom - amount;
+
+        if (newZoom > 0 && newZoom > minZoom) {
+          chart.current.style.transform = setTransform(newZoom);
+        }
+      },
+      exportTo: function exportTo(exportFilename) {
+        var fileType = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'image/jpeg';
+        exportFilename = exportFilename || 'OrgChart';
+
+        _setExporting(true);
+
+        var originalScrollLeft = container.current.scrollLeft;
+        container.current.scrollLeft = 0;
+        var originalScrollTop = container.current.scrollTop;
+        container.current.scrollTop = 0;
+
+        if (fileType === 'application/pdf') {
+          setTimeout(function () {
+            chartToPdf(exportFilename);
+          }, 300);
+        } else {
+          setTimeout(function () {
+            chartToImage(exportFilename, originalScrollLeft, originalScrollTop);
+          }, 300);
+        }
+      },
+      expandAllNodes: function expandAllNodes() {
+        chart.current.querySelectorAll('.oc-node.hidden, .oc-node-full-opacity, .oc-node.zero-opacity, .oc-hierarchy.hidden, .oc-hierarchy.full-opacity, .oc-hierarchy.zero-opacity, .isSiblingsCollapsed, .isAncestorsCollapsed, .oc-children.hidden, .oc-children-full-opacity, .oc-children-zero-opacity').forEach(function (el) {
+          el.classList.remove('hidden', 'full-opacity', 'zero-opacity', 'isSiblingsCollapsed', 'isAncestorsCollapsed');
+        });
       }
-
-      node = node.nextSibling;
-    } // 在展开兄弟节点的同时，还要展开父节点
-
-
-    var isAncestorsCollapsed = actionNode.parentNode.closest('li').firstChild.classList.contains('hidden');
-
-    if (isAncestorsCollapsed) {
-      toggleAncestors(actionNode);
-    }
-  };
-
-  var hEdgeClickHandler = function hEdgeClickHandler(e) {
-    e.stopPropagation();
-    setLeftEdgeExpanded(!leftEdgeExpanded);
-    setRightEdgeExpanded(!rightEdgeExpanded);
-    if (toggleableSiblings) toggleSiblings(e.target.closest('li'));
-  };
-
-  var filterAllowedDropNodes = function filterAllowedDropNodes(id) {
-    _service.dragNodeService.sendDragInfo(id);
-  };
-
-  var clickNodeHandler = function clickNodeHandler(event) {
-    if (onClickNode) {
-      onClickNode(datasource);
-    }
-
-    _service.selectNodeService.sendSelectedNodeInfo(datasource.id);
-  };
-
-  var dragstartHandler = function dragstartHandler(event) {
-    var copyDS = _objectSpread({}, datasource);
-
-    delete copyDS.relationship;
-    event.dataTransfer.setData('text/plain', JSON.stringify(copyDS)); // highlight all potential drop targets
-
-    filterAllowedDropNodes(node.current.id);
-  };
-
-  var dragoverHandler = function dragoverHandler(event) {
-    // prevent default to allow drop
-    event.preventDefault();
-  };
-
-  var dragendHandler = function dragendHandler() {
-    // reset background of all potential drop targets
-    _service.dragNodeService.clearDragInfo();
-  };
-
-  var dropHandler = function dropHandler(event) {
-    if (!event.currentTarget.classList.contains('allowedDrop')) {
-      return;
-    }
-
-    _service.dragNodeService.clearDragInfo();
-
-    changeHierarchy(JSON.parse(event.dataTransfer.getData('text/plain')), event.currentTarget.id);
-  };
-
-  return /*#__PURE__*/_react.default.createElement("li", {
-    className: "oc-hierarchy"
+    };
+  });
+  return /*#__PURE__*/_react.default.createElement("div", {
+    ref: container,
+    className: "orgchart-container ".concat(exporting || loading ? 'exporting-chart-container ' : '', " ").concat(containerClass),
+    style: {
+      cursor: cursor
+    },
+    onMouseUp: pan && panning ? panEndHandler : undefined,
+    onMouseDown: pan ? panStartHandler : undefined,
+    onMouseMove: pan && panning ? panHandler : undefined
   }, /*#__PURE__*/_react.default.createElement("div", {
-    ref: node,
-    id: datasource.id,
-    className: nodeClass,
-    draggable: draggable ? 'true' : undefined,
-    onClick: clickNodeHandler,
-    onDragStart: dragstartHandler,
-    onDragOver: dragoverHandler,
-    onDragEnd: dragendHandler,
-    onDrop: dropHandler,
-    onMouseEnter: addArrows,
-    onMouseLeave: removeArrows
-  }, NodeTemplate ? /*#__PURE__*/_react.default.createElement(NodeTemplate, {
-    nodeData: datasource
-  }) : /*#__PURE__*/_react.default.createElement(_react.default.Fragment, null, /*#__PURE__*/_react.default.createElement("div", {
-    className: "oc-heading"
-  }, datasource.relationship && datasource.relationship.charAt(2) === '1' && /*#__PURE__*/_react.default.createElement("i", {
-    className: "oci oci-leader oc-symbol"
-  }), datasource.name), /*#__PURE__*/_react.default.createElement("div", {
-    className: "oc-content"
-  }, datasource.title)), collapsible && datasource.relationship && datasource.relationship.charAt(0) === '1' && /*#__PURE__*/_react.default.createElement("i", {
-    className: "oc-edge verticalEdge topEdge oci ".concat(topEdgeExpanded === undefined ? '' : topEdgeExpanded ? 'oci-chevron-down' : 'oci-chevron-up'),
-    onClick: topEdgeClickHandler
-  }), collapsible && datasource.relationship && datasource.relationship.charAt(1) === '1' && /*#__PURE__*/_react.default.createElement(_react.default.Fragment, null, /*#__PURE__*/_react.default.createElement("i", {
-    className: "oc-edge horizontalEdge rightEdge oci ".concat(rightEdgeExpanded === undefined ? '' : rightEdgeExpanded ? 'oci-chevron-left' : 'oci-chevron-right', " ").concat(toggleableSiblings ? '' : 'hidden'),
-    onClick: hEdgeClickHandler
-  }), /*#__PURE__*/_react.default.createElement("i", {
-    className: "oc-edge horizontalEdge leftEdge oci ".concat(leftEdgeExpanded === undefined ? '' : leftEdgeExpanded ? 'oci-chevron-right' : 'oci-chevron-left', " ").concat(toggleableSiblings ? '' : 'hidden'),
-    onClick: hEdgeClickHandler
-  })), collapsible && datasource.relationship && datasource.relationship.charAt(2) === '1' && /*#__PURE__*/_react.default.createElement("i", {
-    className: "oc-edge verticalEdge bottomEdge oci ".concat(bottomEdgeExpanded === undefined ? '' : bottomEdgeExpanded ? 'oci-chevron-up' : 'oci-chevron-down'),
-    onClick: bottomEdgeClickHandler
-  })), datasource.children && datasource.children.length > 0 && /*#__PURE__*/_react.default.createElement("ul", {
-    className: "oc-children"
-  }, datasource.children.map(function (node) {
-    return /*#__PURE__*/_react.default.createElement(ChartNode, {
-      datasource: node,
-      isUser: node.isUser,
-      NodeTemplate: NodeTemplate,
-      id: node.id,
-      key: node.id,
-      draggable: draggable,
-      collapsible: collapsible,
-      multipleSelect: multipleSelect,
-      changeHierarchy: changeHierarchy,
-      onClickNode: onClickNode,
-      toggleableSiblings: toggleableSiblings
-    });
-  })));
-};
-
-ChartNode.propTypes = propTypes;
-ChartNode.defaultProps = defaultProps;
-var _default = ChartNode;
+    ref: chart,
+    className: "orgchart ".concat(exporting || loading ? 'exporting-chart ' : '', " ").concat(chartClass),
+    onClick: clickChartHandler
+  }, /*#__PURE__*/_react.default.createElement("ul", null, /*#__PURE__*/_react.default.createElement(_ChartNode.default, {
+    datasource: attachRel(ds, '00'),
+    NodeTemplate: NodeTemplate,
+    draggable: draggable,
+    collapsible: collapsible,
+    multipleSelect: multipleSelect,
+    changeHierarchy: changeHierarchy,
+    onClickNode: onClickNode,
+    toggleableSiblings: toggleableSiblings,
+    isUser: attachRel(ds, '00').isUser
+  }))), /*#__PURE__*/_react.default.createElement("div", {
+    className: "oc-mask ".concat(exporting || loading ? '' : 'hidden')
+  }, /*#__PURE__*/_react.default.createElement("div", {
+    className: "spinner"
+  }, loadingComponent)));
+});
+ChartContainer.propTypes = propTypes;
+ChartContainer.defaultProps = defaultProps;
+var _default = ChartContainer;
 exports.default = _default;
